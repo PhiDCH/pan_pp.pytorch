@@ -223,10 +223,22 @@ def main(args):
         assert osp.isfile(args.resume), 'Error: no checkpoint directory found!'
         print('Resuming from checkpoint %s.' % args.resume)
         checkpoint = torch.load(args.resume)
-        start_epoch = checkpoint['epoch']
-        start_iter = checkpoint['iter']
+        
+        # print(checkpoint.keys())
+        # print(type(checkpoint['optimizer']))
+        # start_epoch = checkpoint['epoch']
+        # start_iter = checkpoint['iter']
+        
+        # model.load_state_dict(checkpoint['state_dict'])
+        # optimizer.load_state_dict(checkpoint['optimizer'])
+        
+        start_epoch = 0
+        start_iter = 0
+        
         model.load_state_dict(checkpoint['state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
+        checkpoint0 = torch.load('/home/dev/Downloads/phi/pan_pp.pytorch/pretrained/pan_r18_ic15.pth.tar')
+        optimizer.load_state_dict(checkpoint0['optimizer'])
+        del checkpoint0
 
     for epoch in range(start_epoch, cfg.train_cfg.epoch):
         print('\nEpoch: [%d | %d]' % (epoch + 1, cfg.train_cfg.epoch))
@@ -244,9 +256,9 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Hyperparams')
-    parser.add_argument('config', help='config file path')
-    parser.add_argument('--checkpoint', nargs='?', type=str, default=None)
-    parser.add_argument('--resume', nargs='?', type=str, default=None)
+    parser.add_argument('config', type=str, nargs='?', help='config file path', default='config/pan/pan_r18_ic15.py')
+    parser.add_argument('--checkpoint', nargs='?', type=str, default='checkpoints/pan_r18_alldata2')
+    parser.add_argument('--resume', nargs='?', type=str, default='/home/dev/Downloads/phi/pan_pp.pytorch/checkpoints/pan_r18_synth.pth.tar')
     args = parser.parse_args()
 
     main(args)

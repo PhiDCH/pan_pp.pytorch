@@ -69,8 +69,8 @@ class PA_Head(nn.Module):
         img_size = img_meta['img_size'][0]
 
         label_num = np.max(label) + 1
-        label = cv2.resize(label, (img_size[1], img_size[0]), interpolation=cv2.INTER_NEAREST)
-        score = cv2.resize(score, (img_size[1], img_size[0]), interpolation=cv2.INTER_NEAREST)
+        label = cv2.resize(label, (int(img_size[1]), int(img_size[0])), interpolation=cv2.INTER_NEAREST)
+        score = cv2.resize(score, (int(img_size[1]), int(img_size[0])), interpolation=cv2.INTER_NEAREST)
 
         if not self.training and cfg.report_speed:
             torch.cuda.synchronize()
@@ -172,3 +172,95 @@ class PA_Head(nn.Module):
         ))
 
         return losses
+
+
+    def get_single_result(self, out, img_meta, cfg):
+        outputs = dict()
+
+        if not self.training and cfg.report_speed:
+            torch.cuda.synchronize()
+            start = time.time()
+
+        score = torch.sigmoid(out[:, 0, :, :])
+        kernels = out[:, :2, :, :] > 0
+        text_mask = kernels[:, :1, :, :]
+        kernels[:, 1:, :, :] = kernels[:, 1:, :, :] * text_mask
+        emb = out[:, 2:, :, :]
+        emb = emb * text_mask.float()
+
+        score = score.data.cpu().numpy()[0].astype(np.float32)
+        kernels = kernels.data.cpu().numpy()[0].astype(np.uint8)
+        emb = emb.cpu().numpy()[0].astype(np.float32)
+
+        # pa
+        label = pa(kernels, emb)
+
+        # image size
+        org_img_size = img_meta['org_img_size']
+        img_size = img_meta['img_size']
+
+        label_num = np.max(label) + 1
+        label = cv2.resize(label, (int(img_size[1]), int(img_size[0])), interpolation=cv2.INTER_NEAREST)
+        score = cv2.resize(score, (int(img_size[1]), int(img_size[0])), interpolation=cv2.INTER_NEAREST)
+
+        if not self.training and cfg.report_speed:
+            torch.cuda.synchronize()
+            outputs.update(dict(
+                det_pa_time=time.time() - start
+            ))
+
+        scale = (float(org_img_size[1]) / float(img_size[1]),
+                 float(org_img_size[0]) / float(img_size[0]))
+
+        with_rec = hasattr(cfg.model, 'recognition_head')
+
+        if with_rec:
+            bboxes_h = np.zeros((1, label_num, 4), dtype=np.int32)
+            instances = [[]]
+
+        bboxes = []
+        scores = []
+        for i in range(1, label_num):
+            ind = label == i
+            points = np.array(np.where(ind)).transpose((1, 0))
+
+            if points.shape[0] < cfg.test_cfg.min_area:
+                label[ind] = 0
+                continue
+
+            score_i = np.mean(score[ind])
+            if score_i < cfg.test_cfg.min_score:
+                label[ind] = 0
+                continue
+
+            if with_rec:
+                tl = np.min(points, axis=0)
+                br = np.max(points, axis=0) + 1
+                bboxes_h[0, i] = (tl[0], tl[1], br[0], br[1])
+                instances[0].append(i)
+
+            if cfg.test_cfg.bbox_type == 'rect':
+                rect = cv2.minAreaRect(points[:, ::-1])
+                bbox = cv2.boxPoints(rect) * scale
+            elif cfg.test_cfg.bbox_type == 'poly':
+                binary = np.zeros(label.shape, dtype='uint8')
+                binary[ind] = 1
+                contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                bbox = contours[0] * scale
+
+            bbox = bbox.astype('int32')
+            bboxes.append(bbox.reshape(-1))
+            scores.append(score_i)
+
+        outputs.update(dict(
+            bboxes=bboxes,
+            scores=scores
+        ))
+        if with_rec:
+            outputs.update(dict(
+                label=label,
+                bboxes_h=bboxes_h,
+                instances=instances
+            ))
+
+        return outputs

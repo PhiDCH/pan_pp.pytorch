@@ -13,12 +13,33 @@ import scipy.io as scio
 import mmcv
 from mmcv.parallel import DataContainer as DC
 
-ic15_root_dir = './data/ICDAR2015/Challenge4/'
-ic15_train_data_dir = ic15_root_dir + 'ch4_training_images/'
-ic15_train_gt_dir = ic15_root_dir + 'ch4_training_localization_transcription_gt/'
-ic15_test_data_dir = ic15_root_dir + 'ch4_test_images/'
-ic15_test_gt_dir = ic15_root_dir + 'ch4_test_localization_transcription_gt/'
+ic15_root_dir = '../icdar2015/'
+ic15_train_data_dir = ic15_root_dir + 'train/img/'
+ic15_train_gt_dir = ic15_root_dir + 'train/gt/'
+ic15_test_data_dir = ic15_root_dir + 'test/img/'
+ic15_test_gt_dir = ic15_root_dir + 'test/gt/'
 
+mlt_root_dir = '../mlt/'
+mlt_train_data_dir = mlt_root_dir + 'train/img/'
+mlt_train_gt_dir = mlt_root_dir + 'train/gt/'
+mlt_test_data_dir = mlt_root_dir + 'val/img/'
+mlt_test_gt_dir = mlt_root_dir + 'val/gt/'
+
+ic13_root_dir = '../icdar2013/'
+ic13_train_data_dir = ic13_root_dir + 'train/img/'
+ic13_train_gt_dir = ic13_root_dir + 'train/gt/'
+
+vintext_root_dir = '../vintext/'
+vintext_train_data_dir = vintext_root_dir + 'train/img/'
+vintext_train_gt_dir = vintext_root_dir + 'train/gt/'
+
+ic19 = '../ic19-art/'
+ic19_train_data_dir = ic19 + 'train/img/'
+ic19_train_gt_dir = ic19 + 'train/gt/'
+
+textOCR = '../textOCR/'
+textOCR_train_data_dir = textOCR + 'train/img/'
+textOCR_train_gt_dir = textOCR + 'train/gt/'
 
 def get_img(img_path, read_type='pil'):
     try:
@@ -33,7 +54,7 @@ def get_img(img_path, read_type='pil'):
     return img
 
 
-def get_ann(img, gt_path):
+def get_ann(img, gt_path, ic15_format):
     h, w = img.shape[0:2]
     lines = mmcv.list_from_file(gt_path)
     bboxes = []
@@ -41,17 +62,28 @@ def get_ann(img, gt_path):
     for line in lines:
         line = line.encode('utf-8').decode('utf-8-sig')
         line = line.replace('\xef\xbb\xbf', '')
-        gt = line.split(',')
-        word = gt[8].replace('\r', '').replace('\n', '')
-        if word[0] == '#':
+        gt = line.strip(',').split(',')
+        word = gt[-1].replace('\r', '').replace('\n', '')
+        if word[0] == '#' :
             words.append('###')
         else:
             words.append(word)
 
-        bbox = [int(gt[i]) for i in range(8)]
-        bbox = np.array(bbox) / ([w * 1.0, h * 1.0] * 4)
+        if ic15_format:
+            len_box = 8
+        else:
+            len_box = len(gt) - 1 
+            if len_box % 2 ==1:
+                len_box -= 1
+        try:
+            bbox = [int(float(gt[i])) for i in range(len_box)]
+        except: 
+            print(gt)
+            print(gt_path)
+        bbox = np.array(bbox) / ([w * 1.0, h * 1.0] * (len_box//2))
         bboxes.append(bbox)
-    return np.array(bboxes), words
+#    return np.array(bboxes), words
+    return bboxes, words
 
 
 def random_horizontal_flip(imgs):
@@ -198,7 +230,7 @@ def shrink(bboxes, rate, max_shr=20):
                 shrinked_bboxes.append(bbox)
                 continue
 
-            shrinked_bbox = np.array(shrinked_bbox)[0]
+            shrinked_bbox = np.array(shrinked_bbox[0])
             if shrinked_bbox.shape[0] <= 2:
                 shrinked_bboxes.append(bbox)
                 continue
@@ -252,8 +284,10 @@ class PAN_IC15(data.Dataset):
         self.read_type = read_type
 
         if split == 'train':
-            data_dirs = [ic15_train_data_dir]
-            gt_dirs = [ic15_train_gt_dir]
+            # data_dirs = [ic15_train_data_dir, mlt_train_data_dir, ic13_train_data_dir, vintext_train_data_dir]
+            # gt_dirs = [ic15_train_gt_dir, mlt_train_gt_dir, ic13_train_gt_dir, vintext_train_gt_dir]
+            data_dirs = [mlt_train_data_dir, ic13_train_data_dir, vintext_train_data_dir, ic15_train_data_dir, ic19_train_data_dir, textOCR_train_data_dir]
+            gt_dirs = [mlt_train_gt_dir, ic13_train_gt_dir, vintext_train_gt_dir, ic15_train_gt_dir, ic19_train_gt_dir, textOCR_train_gt_dir]
         elif split == 'test':
             data_dirs = [ic15_test_data_dir]
             gt_dirs = [ic15_test_gt_dir]
@@ -261,6 +295,9 @@ class PAN_IC15(data.Dataset):
             print('Error: split must be train or test!')
             raise
 
+        for dataset in data_dirs:
+            print(dataset, '\n')
+        
         self.img_paths = []
         self.gt_paths = []
 
@@ -299,10 +336,15 @@ class PAN_IC15(data.Dataset):
         img_path = self.img_paths[index]
         gt_path = self.gt_paths[index]
 
-        img = get_img(img_path, self.read_type)
-        bboxes, words = get_ann(img, gt_path)
+        name_dataset = img_path.split('/')[-4]
+        ic15_format = False
+        if name_dataset in ['icdar2015','icdar2013','mlt','textOCR']:
+            ic15_format = True
 
-        if bboxes.shape[0] > self.max_word_num:
+        img = get_img(img_path, self.read_type)
+        bboxes, words = get_ann(img, gt_path, ic15_format)
+
+        if len(bboxes) > self.max_word_num:
             bboxes = bboxes[:self.max_word_num]
             words = words[:self.max_word_num]
 
@@ -332,10 +374,13 @@ class PAN_IC15(data.Dataset):
 
         gt_instance = np.zeros(img.shape[0:2], dtype='uint8')
         training_mask = np.ones(img.shape[0:2], dtype='uint8')
-        if bboxes.shape[0] > 0:
-            bboxes = np.reshape(bboxes * ([img.shape[1], img.shape[0]] * 4),
-                                (bboxes.shape[0], -1, 2)).astype('int32')
-            for i in range(bboxes.shape[0]):
+        if len(bboxes) > 0:
+            #bboxes = np.reshape(bboxes * ([img.shape[1], img.shape[0]] * 4),
+            #                    (bboxes.shape[0], -1, 2)).astype('int32')
+            for i in range(len(bboxes)):    
+                bboxes[i] = np.reshape(bboxes[i] * ([img.shape[1], img.shape[0]] * (bboxes[i].shape[0] // 2)),
+                                    (bboxes[i].shape[0] // 2, 2)).astype('int32')
+            for i in range(len(bboxes)):
                 cv2.drawContours(gt_instance, [bboxes[i]], -1, i + 1, -1)
                 if words[i] == '###':
                     cv2.drawContours(training_mask, [bboxes[i]], -1, 0, -1)
@@ -344,7 +389,7 @@ class PAN_IC15(data.Dataset):
         for rate in [self.kernel_scale]:
             gt_kernel = np.zeros(img.shape[0:2], dtype='uint8')
             kernel_bboxes = shrink(bboxes, rate)
-            for i in range(bboxes.shape[0]):
+            for i in range(len(bboxes)):
                 cv2.drawContours(gt_kernel, [kernel_bboxes[i]], -1, 1, -1)
             gt_kernels.append(gt_kernel)
 

@@ -61,13 +61,13 @@ def test(test_loader, model, cfg):
         with torch.no_grad():
             outputs = model(**data)
 
-        # print(data['imgs'].data.cpu().numpy().shape)
-        # img = data['imgs'].data.cpu().numpy()[0].transpose()
-        # img = ((1+img)*128).astype(int)
-        # # print(img)
-        # cv2.imwrite('test.jpg', img)
-        # # print(outputs['bboxes'])
-        # if idx == 0: break
+        print(outputs.keys())
+        img = data['imgs'].cpu().numpy()[0].transpose()
+        img = ((1+img)*128).astype(int)
+        # print(img)
+        cv2.imwrite('test.jpg', img)
+        print(outputs['bboxes'])
+        if idx == 0: break
         
         if cfg.report_speed:
             report_speed(outputs, speed_meters)
@@ -80,7 +80,7 @@ def test(test_loader, model, cfg):
         rf.write_result(image_name, outputs)
 
 
-def main(args):
+def get_model(args):
     cfg = Config.fromfile(args.config)
     for d in [cfg, cfg.data.test]:
         d.update(dict(
@@ -88,22 +88,8 @@ def main(args):
         ))
     # print(json.dumps(cfg._cfg_dict, indent=4))
     # sys.stdout.flush()
-
-    # data loader
-    data_loader = build_data_loader(cfg.data.test)
-    test_loader = torch.utils.data.DataLoader(
-        data_loader,
-        batch_size=1,
-        shuffle=False,
-        num_workers=2,
-    )
+    
     # model
-    if hasattr(cfg.model, 'recognition_head'):
-        cfg.model.recognition_head.update(dict(
-            voc=data_loader.voc,
-            char2id=data_loader.char2id,
-            id2char=data_loader.id2char,
-        ))
     model = build_model(cfg.model)
     model = model.cuda()
 
@@ -125,17 +111,88 @@ def main(args):
 
     # fuse conv and bn
     model = fuse_module(model)
+    model.eval()
+    return model, cfg
 
-    # test
-    test(test_loader, model, cfg)
+def get_input(img_path):
+    img = cv2.imread(img_path)[:, :, [2,1,0]]
+    img_meta = dict(
+        org_img_size=np.array(img.shape[:2])
+    )
+
+    # short_size = 736
+    # img = scale_aligned_short(img, short_size)
+    img_meta.update(dict(
+        img_size=np.array(img.shape[:2])
+    ))
+
+    img = Image.fromarray(img)
+    img = img.convert('RGB')
+    img = transforms.ToTensor()(img)
+    img = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(img)
+    img = img.unsqueeze_(0)
+
+    data = dict(
+        imgs=img,
+        img_metas=img_meta
+    )
+    return data
+
+def scale_aligned_short(img, short_size=736):
+    h, w = img.shape[0:2]
+    scale = short_size * 1.0 / min(h, w)
+    h = int(h * scale + 0.5)
+    w = int(w * scale + 0.5)
+    if h % 32 != 0:
+        h = h + (32 - h % 32)
+    if w % 32 != 0:
+        w = w + (32 - w % 32)
+    img = cv2.resize(img, dsize=(w, h))
+    return img
 
 
 if __name__ == '__main__':
+    from PIL import Image
+    import torchvision.transforms as transforms
+    
     # print(1)
     parser = argparse.ArgumentParser(description='Hyperparams')
-    parser.add_argument('config', type=str, nargs='?',help='config file path', default='config/pan/pan_r18_ic15.py')
-    parser.add_argument('checkpoint', nargs='?', type=str, default='/home/dev/Downloads/phi/pan_pp.pytorch/checkpoints/pan_r18_ic15/checkpoint.pth.tar')
+    parser.add_argument('config', type=str, nargs='?', help='config file path', default='config/pan/pan_r18_ic15.py')
+    parser.add_argument('checkpoint', nargs='?', type=str, default='/home/dev/Downloads/phi/pan_pp.pytorch/checkpoints/pan_r18_alldata/checkpoint.pth.tar')
     parser.add_argument('--report_speed', action='store_true')
     args = parser.parse_args()
 
-    main(args)
+    model, cfg = get_model(args)
+    
+    src = '../example_text_detection'
+    dic = 'result/res_pan_r18_alldata'
+    # dic = 'result/res_pan_r18_mlt'
+    # dic = 'result/res_pan_r18_ic15'
+    img_list = os.listdir(src)
+    
+    for i in tqdm(range(len(img_list))):
+        img_path = os.path.join(src, img_list[i])
+        data_input = get_input(img_path)
+        
+        data_input['imgs'] = data_input['imgs'].cuda()
+        data_input.update(dict(cfg=cfg))
+        
+        # print('original size', )
+        # print('data size', data_input['imgs'].data.cpu().numpy().shape)
+        # start = time.time()
+        with torch.no_grad():
+            outputs = model(**data_input)
+        poly = outputs['bboxes']
+        # print('num of word', len(poly))
+        # print('time consumed', time.time()-start)
+        
+        
+        
+        img = cv2.imread(img_path)
+        img_save = cv2.polylines(img, [box.reshape((4,2)) for box in poly], True, (0,255,0), 1)
+        cv2.imwrite(os.path.join(dic, img_list[i]), img_save)
+        # cv2.imwrite('test_shrink0.5.jpg', img_save)
+    
+    
+    
+    
