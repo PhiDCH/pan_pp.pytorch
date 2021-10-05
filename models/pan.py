@@ -102,8 +102,8 @@ class PAN(nn.Module):
             outputs.update(det_loss)
         else:
             det_out = self._upsample(det_out, imgs.size(), 4)
-            det_res = self.det_head.get_results(det_out, img_metas, cfg)
-            # det_res = self.det_head.get_single_result(det_out, img_metas, cfg)
+            # det_res = self.det_head.get_results(det_out, img_metas, cfg)
+            det_res = self.det_head.get_single_result(det_out, img_metas, cfg)
             outputs.update(det_res)
 
         return outputs

@@ -41,6 +41,18 @@ textOCR = '../textOCR/'
 textOCR_train_data_dir = textOCR + 'train/img/'
 textOCR_train_gt_dir = textOCR + 'train/gt/'
 
+finetune = '../milk_data/finetune/'
+finetune_train_data_dir = finetune + 'train/img/'
+finetune_train_gt_dir = finetune + 'train/gt/'
+
+bosung = '../milk_data/bosung/'
+bosung_train_data_dir = bosung + 'train/img/'
+bosung_train_gt_dir = bosung + 'train/gt/'
+
+datagen = '../milk_data/gendata/'
+datagen_train_data_dir = datagen + 'train/img/'
+datagen_train_gt_dir = datagen + 'train/gt/'
+
 def get_img(img_path, read_type='pil'):
     try:
         if read_type == 'cv2':
@@ -65,7 +77,9 @@ def get_ann(img, gt_path, ic15_format):
         gt = line.strip(',').split(',')
         word = gt[-1].replace('\r', '').replace('\n', '')
         if word[0] == '#' :
-            words.append('###')
+            # words.append('###')
+            ### for un-annotation recognition data 
+            words.append('abc')
         else:
             words.append(word)
 
@@ -286,8 +300,10 @@ class PAN_IC15(data.Dataset):
         if split == 'train':
             # data_dirs = [ic15_train_data_dir, mlt_train_data_dir, ic13_train_data_dir, vintext_train_data_dir]
             # gt_dirs = [ic15_train_gt_dir, mlt_train_gt_dir, ic13_train_gt_dir, vintext_train_gt_dir]
-            data_dirs = [mlt_train_data_dir, ic13_train_data_dir, vintext_train_data_dir, ic15_train_data_dir, ic19_train_data_dir, textOCR_train_data_dir]
-            gt_dirs = [mlt_train_gt_dir, ic13_train_gt_dir, vintext_train_gt_dir, ic15_train_gt_dir, ic19_train_gt_dir, textOCR_train_gt_dir]
+            # data_dirs = [mlt_train_data_dir, ic13_train_data_dir, vintext_train_data_dir, ic15_train_data_dir, ic19_train_data_dir, textOCR_train_data_dir]
+            # gt_dirs = [mlt_train_gt_dir, ic13_train_gt_dir, vintext_train_gt_dir, ic15_train_gt_dir, ic19_train_gt_dir, textOCR_train_gt_dir]
+            data_dirs = [finetune_train_data_dir, bosung_train_data_dir, datagen_train_data_dir]
+            gt_dirs = [finetune_train_gt_dir, bosung_train_gt_dir, datagen_train_gt_dir]
         elif split == 'test':
             data_dirs = [ic15_test_data_dir]
             gt_dirs = [ic15_test_gt_dir]
@@ -338,7 +354,7 @@ class PAN_IC15(data.Dataset):
 
         name_dataset = img_path.split('/')[-4]
         ic15_format = False
-        if name_dataset in ['icdar2015','icdar2013','mlt','textOCR']:
+        if name_dataset in ['icdar2015','icdar2013','mlt','textOCR','gendata','bosung','finetune']:
             ic15_format = True
 
         img = get_img(img_path, self.read_type)

@@ -158,14 +158,16 @@ if __name__ == '__main__':
     # print(1)
     parser = argparse.ArgumentParser(description='Hyperparams')
     parser.add_argument('config', type=str, nargs='?', help='config file path', default='config/pan/pan_r18_ic15.py')
-    parser.add_argument('checkpoint', nargs='?', type=str, default='/home/dev/Downloads/phi/pan_pp.pytorch/checkpoints/pan_r18_alldata/checkpoint.pth.tar')
+    parser.add_argument('checkpoint', nargs='?', type=str, default='/home/dev/Downloads/phi/pan_pp.pytorch/checkpoints/pan_r18_alldata2/checkpoint.pth.tar')
     parser.add_argument('--report_speed', action='store_true')
     args = parser.parse_args()
 
     model, cfg = get_model(args)
     
-    src = '../example_text_detection'
-    dic = 'result/res_pan_r18_alldata'
+    # src = '../example_text_detection'
+    # dic = 'result/res_pan_r18_alldata2'
+    src = '../send_to_phi_test_pan/images_data'
+    dic = 'result/res_hoadon'
     # dic = 'result/res_pan_r18_mlt'
     # dic = 'result/res_pan_r18_ic15'
     img_list = os.listdir(src)

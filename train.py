@@ -105,7 +105,7 @@ def train(train_loader, model, optimizer, epoch, start_iter, cfg):
         start = time.time()
 
         # print log
-        if iter % 20 == 0:
+        if iter % 300 == 0:
             output_log = f'({iter + 1}/{len(train_loader)}) LR: {optimizer.param_groups[0]["lr"]:.6f} | ' \
                          f'Batch: {batch_time.avg:.3f}s | Total: {batch_time.avg * iter / 60.0:.0f}min | ' \
                          f'ETA: {batch_time.avg * (len(train_loader) - iter) / 60.0:.0f}min | ' \
@@ -224,21 +224,21 @@ def main(args):
         print('Resuming from checkpoint %s.' % args.resume)
         checkpoint = torch.load(args.resume)
         
-        # print(checkpoint.keys())
-        # print(type(checkpoint['optimizer']))
-        # start_epoch = checkpoint['epoch']
-        # start_iter = checkpoint['iter']
-        
-        # model.load_state_dict(checkpoint['state_dict'])
-        # optimizer.load_state_dict(checkpoint['optimizer'])
-        
-        start_epoch = 0
-        start_iter = 0
+
+        start_epoch = checkpoint['epoch']
+        start_iter = checkpoint['iter']
         
         model.load_state_dict(checkpoint['state_dict'])
-        checkpoint0 = torch.load('/home/dev/Downloads/phi/pan_pp.pytorch/pretrained/pan_r18_ic15.pth.tar')
-        optimizer.load_state_dict(checkpoint0['optimizer'])
-        del checkpoint0
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        
+        
+        # start_epoch = 0
+        # start_iter = 0
+        
+        # model.load_state_dict(checkpoint['state_dict'])
+        # checkpoint0 = torch.load('/home/dev/Downloads/phi/pan_pp.pytorch/pretrained/pan_r18_ic15.pth.tar')
+        # optimizer.load_state_dict(checkpoint0['optimizer'])
+        # del checkpoint0
 
     for epoch in range(start_epoch, cfg.train_cfg.epoch):
         print('\nEpoch: [%d | %d]' % (epoch + 1, cfg.train_cfg.epoch))
@@ -257,8 +257,10 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Hyperparams')
     parser.add_argument('config', type=str, nargs='?', help='config file path', default='config/pan/pan_r18_ic15.py')
-    parser.add_argument('--checkpoint', nargs='?', type=str, default='checkpoints/pan_r18_alldata2')
-    parser.add_argument('--resume', nargs='?', type=str, default='/home/dev/Downloads/phi/pan_pp.pytorch/checkpoints/pan_r18_synth.pth.tar')
+    # parser.add_argument('--checkpoint', nargs='?', type=str, default='checkpoints/pan_r18_alldata2')
+    # parser.add_argument('--resume', nargs='?', type=str, default='/home/dev/Downloads/phi/pan_pp.pytorch/checkpoints/pan_r18_synth.pth.tar')
+    parser.add_argument('--checkpoint', nargs='?', type=str, default='checkpoints/pan_r18_milk')
+    parser.add_argument('--resume', nargs='?', type=str, default='/home/dev/Downloads/phi/pan_pp.pytorch/checkpoints/pan_r18_alldata2/checkpoint.pth.tar')
     args = parser.parse_args()
 
     main(args)
