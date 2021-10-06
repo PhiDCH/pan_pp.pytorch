@@ -1,8 +1,8 @@
 from multiprocessing.pool import ThreadPool
 
-def thread_worker(label, score, scale, min_area, min_score, i):
-    ind = label == i
-    points = np.array(np.where(ind)).transpose((1, 0))
+def thread_worker(list_points, score, scale, min_area, min_score, i):
+    points = np.array(list_points[i-1]).transpose((1, 0))
+    ind = list_point[i-1]
 
     if points.shape[0] < min_area:
         label[ind] = 0

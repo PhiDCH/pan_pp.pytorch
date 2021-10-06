@@ -11,6 +11,20 @@ from ..post_processing import pa
 from tqdm import tqdm 
 
 from multiprocessing.pool import ThreadPool
+from multiprocessing import Process, Queue
+
+from scipy.sparse import csr_matrix
+
+def compute_M(data):
+    cols = np.arange(data.size)
+    return csr_matrix((cols, (data.ravel(), cols)),
+                      shape=(data.max()+1, data.size))
+
+def get_indices_sparse(data):
+    M = compute_M(data)
+    return [np.unravel_index(row.data, data.shape) for row in M[1:]]
+
+
 
 class PA_Head(nn.Module):
     def __init__(self,
@@ -302,15 +316,106 @@ class PA_Head(nn.Module):
         # label_num = np.max(label) + 1
         # print(label_num)
         
+        
+        ###################### multi thread ########################
+        # bboxes = []
+        # scores = []
+
+        # # num_thread = label_num -1 
+        # pool = ThreadPool(processes=label_num-1)
+        
+        # result = []
+        # for i in range(1, label_num):
+        #     async_result = pool.apply_async(thread_worker, (label, score, scale, cfg.test_cfg.min_area, cfg.test_cfg.min_score, i)) # tuple of args for foo
+        #     result.append(async_result)
+        
+        # for res in result:
+        #     box = res.get()[0]
+        #     if np.any(box != None):
+        #         bboxes.append(box)
+        #         scores.append(res.get()[1])
+        
+        # print('num word', len(bboxes))
+        
+        # time4 = time.time()
+        # print('for loop time',time4-time3)        
+        
+        
+        ######################### sparse matrix #############################
+        # bboxes = []
+        # scores = []
+        
+        # list_points = get_indices_sparse(label)
+
+        # for i in range(1, label_num):
+        #     # ind = label == i
+        #     t51 = time.time()
+        #     # points = np.array(np.where(ind)).transpose((1, 0))
+        #     points = np.array(list_points[i-1]).transpose((1, 0))
+        #     ind = list_points[i-1]
+        #     t6 = time.time()
+        #     if points.shape[0] < cfg.test_cfg.min_area:
+        #         label[ind] = 0
+        #         continue
+        #     t7 = time.time()
+        #     score_i = np.mean(score[ind])
+        #     t8 = time.time()
+        #     if score_i < cfg.test_cfg.min_score:
+        #         label[ind] = 0
+        #         continue
+        #     t9 = time.time()
+        #     if cfg.test_cfg.bbox_type == 'rect':
+        #         rect = cv2.minAreaRect(points[:, ::-1])
+        #         bbox = cv2.boxPoints(rect) * scale
+        #     elif cfg.test_cfg.bbox_type == 'poly':
+        #         binary = np.zeros(label.shape, dtype='uint8')
+        #         binary[ind] = 1
+        #         contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        #         bbox = contours[0] * scale
+                
+        #     bbox = bbox.astype('int32')
+        #     bboxes.append(bbox.reshape(-1))
+        #     scores.append(score_i)                
+            
+        
+        # time4 = time.time()
+        # print('for loop time',time4-time3)
+
+        # print('num word', len(bboxes))
+        
+        
+        ####################### merge code ########################
         bboxes = []
         scores = []
+        
+        list_points = get_indices_sparse(label)
+        
+        def thread_worker_inner(i):
+            points = np.array(list_points[i-1]).transpose((1, 0))
+            ind = list_points[i-1]
 
+            if points.shape[0] < cfg.test_cfg.min_area:
+                label[ind] = 0
+                return (None, None)
+
+            score_i = np.mean(score[ind])
+            if score_i < cfg.test_cfg.min_score:
+                label[ind] = 0
+                return (None, None)
+            
+            rect = cv2.minAreaRect(points[:, ::-1])
+            bbox = cv2.boxPoints(rect) * scale
+
+            bbox = bbox.astype('int32')
+            return (bbox.reshape(-1), score_i)
+        
         # num_thread = label_num -1 
         pool = ThreadPool(processes=label_num-1)
         
         result = []
         for i in range(1, label_num):
-            async_result = pool.apply_async(thread_worker, (label, score, scale, cfg.test_cfg.min_area, cfg.test_cfg.min_score, i)) # tuple of args for foo
+            # async_result = pool.apply_async(thread_worker0, (list_points, score, scale, cfg.test_cfg.min_area, cfg.test_cfg.min_score, i))
+            async_result = pool.apply_async(thread_worker_inner, (i,))
             result.append(async_result)
         
         for res in result:
@@ -321,40 +426,33 @@ class PA_Head(nn.Module):
         
         print('num word', len(bboxes))
         
-        # for i in range(1, label_num):
-        #     ind = label == i
-        #     points = np.array(np.where(ind)).transpose((1, 0))
-
-        #     if points.shape[0] < cfg.test_cfg.min_area:
-        #         label[ind] = 0
-        #         continue
-
-        #     score_i = np.mean(score[ind])
-        #     if score_i < cfg.test_cfg.min_score:
-        #         label[ind] = 0
-        #         continue
-
-        #     if with_rec:
-        #         tl = np.min(points, axis=0)
-        #         br = np.max(points, axis=0) + 1
-        #         bboxes_h[0, i] = (tl[0], tl[1], br[0], br[1])
-        #         instances[0].append(i)
-
-        #     if cfg.test_cfg.bbox_type == 'rect':
-        #         rect = cv2.minAreaRect(points[:, ::-1])
-        #         bbox = cv2.boxPoints(rect) * scale
-        #     elif cfg.test_cfg.bbox_type == 'poly':
-        #         binary = np.zeros(label.shape, dtype='uint8')
-        #         binary[ind] = 1
-        #         contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        #         bbox = contours[0] * scale
-
-        #     bbox = bbox.astype('int32')
-        #     bboxes.append(bbox.reshape(-1))
-        #     scores.append(score_i)
-
         time4 = time.time()
-        print('for loop time',time4-time3)        
+        print('for loop time',time4-time3)           
+        
+        ################# multi process #######################
+        # bboxes = []
+        # scores = []
+        
+        # list_points = get_indices_sparse(label)
+        
+        # q = Queue()
+        
+        # result = []
+        # for i in range(1, label_num):
+        #     p = Process(target=process_worker, args=(list_points, score, scale, cfg.test_cfg.min_area, cfg.test_cfg.min_score, i, q, )) # tuple of args for foo
+        #     p.start()
+        
+        # for i in result:
+        #     box, score = q.get()
+        #     if np.any(box != None):
+        #         bboxes.append(box)
+        #         scores.append(score)
+        
+        # print('num word', len(bboxes))
+        
+        # time4 = time.time()
+        # print('for loop time',time4-time3)    
+        
         
         
         outputs.update(dict(
@@ -390,3 +488,42 @@ def thread_worker(label, score, scale, min_area, min_score, i):
 
     bbox = bbox.astype('int32')
     return (bbox.reshape(-1), score_i)
+
+def thread_worker0(list_points, score, scale, min_area, min_score, i):
+    points = np.array(list_points[i-1]).transpose((1, 0))
+    ind = list_points[i-1]
+
+    if points.shape[0] < min_area:
+        label[ind] = 0
+        return (None, None)
+
+    score_i = np.mean(score[ind])
+    if score_i < min_score:
+        label[ind] = 0
+        return (None, None)
+    
+    rect = cv2.minAreaRect(points[:, ::-1])
+    bbox = cv2.boxPoints(rect) * scale
+
+    bbox = bbox.astype('int32')
+    return (bbox.reshape(-1), score_i)
+
+def process_worker(list_points, score, scale, min_area, min_score, i, q):
+    points = np.array(list_points[i-1]).transpose((1, 0))
+    ind = list_points[i-1]
+
+    if points.shape[0] < min_area:
+        label[ind] = 0
+        return (None, None)
+
+    score_i = np.mean(score[ind])
+    if score_i < min_score:
+        label[ind] = 0
+        return (None, None)
+    
+    rect = cv2.minAreaRect(points[:, ::-1])
+    bbox = cv2.boxPoints(rect) * scale
+
+    bbox = bbox.astype('int32')
+    # return (bbox.reshape(-1), score_i)
+    q.put((bbox.reshape(-1), score_i))
