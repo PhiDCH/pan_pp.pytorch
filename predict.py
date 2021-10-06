@@ -120,8 +120,8 @@ def get_input(img_path):
         org_img_size=np.array(img.shape[:2])
     )
 
-    # short_size = 736
-    # img = scale_aligned_short(img, short_size)
+    short_size = 736
+    img = scale_aligned_short(img, short_size)
     img_meta.update(dict(
         img_size=np.array(img.shape[:2])
     ))
@@ -172,7 +172,7 @@ if __name__ == '__main__':
     # dic = 'result/res_pan_r18_ic15'
     img_list = os.listdir(src)
     
-    for i in tqdm(range(len(img_list))):
+    for i in tqdm(range(len(img_list))[0:1]):
         img_path = os.path.join(src, img_list[i])
         data_input = get_input(img_path)
         
@@ -192,7 +192,9 @@ if __name__ == '__main__':
         
         img = cv2.imread(img_path)
         img_save = cv2.polylines(img, [box.reshape((4,2)) for box in poly], True, (0,255,0), 1)
-        cv2.imwrite(os.path.join(dic, img_list[i]), img_save)
+        # cv2.imwrite(os.path.join(dic, img_list[i]), img_save)
+        cv2.imwrite('test.jpg', img_save)
+        
         # cv2.imwrite('test_shrink0.5.jpg', img_save)
     
     

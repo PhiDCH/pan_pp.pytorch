@@ -8,6 +8,9 @@ import time
 from ..loss import build_loss, ohem_batch, iou
 from ..post_processing import pa
 
+from tqdm import tqdm 
+
+from multiprocessing.pool import ThreadPool
 
 class PA_Head(nn.Module):
     def __init__(self,
@@ -173,36 +176,67 @@ class PA_Head(nn.Module):
 
         return losses
 
+    def sigmoid(self, x):
+        return 1 / (1 + np.exp(-x))
 
     def get_single_result(self, out, img_meta, cfg):
+        time0 = time.time()
+        
         outputs = dict()
 
         if not self.training and cfg.report_speed:
             torch.cuda.synchronize()
             start = time.time()
 
-        score = torch.sigmoid(out[:, 0, :, :])
-        kernels = out[:, :2, :, :] > 0
+        temp = out.cpu().numpy()
+        score = self.sigmoid(temp[:,0,:,:])
+        kernels = temp[:, :2, :, :] > 0
         text_mask = kernels[:, :1, :, :]
         kernels[:, 1:, :, :] = kernels[:, 1:, :, :] * text_mask
-        emb = out[:, 2:, :, :]
-        emb = emb * text_mask.float()
+        emb = temp[:, 2:, :, :]
+        emb = emb * text_mask.astype(float)
+        
+        score = score[0].astype(np.float32)
+        kernels = kernels[0].astype(np.uint8)
+        emb = emb[0].astype(np.float32)
+        
+        cv2.imwrite('kernel.jpg', kernels[1,:,:]*128)
+        
+        
+        # score = torch.sigmoid(out[:, 0, :, :])
+        # kernels = out[:, :2, :, :] > 0
+        # text_mask = kernels[:, :1, :, :]
+        # kernels[:, 1:, :, :] = kernels[:, 1:, :, :] * text_mask
+        # emb = out[:, 2:, :, :]
+        # emb = emb * text_mask.float()
 
-        score = score.data.cpu().numpy()[0].astype(np.float32)
-        kernels = kernels.data.cpu().numpy()[0].astype(np.uint8)
-        emb = emb.cpu().numpy()[0].astype(np.float32)
+        # score = score.data.cpu().numpy()[0].astype(np.float32)
+        # kernels = kernels.data.cpu().numpy()[0].astype(np.uint8)
+        # emb = emb.cpu().numpy()[0].astype(np.float32)
 
+
+        # print(np.max(score - score1))
+        # print(np.max(kernels - kernels1))
+        # print(np.max(emb - emb1))
+        time1 = time.time()
+        # print(time1-time0)
         # pa
         label = pa(kernels, emb)
-
+        time2 = time.time()
+        # print(time2-time1)
         # image size
         org_img_size = img_meta['org_img_size']
         img_size = img_meta['img_size']
+        
+        print('org_size', org_img_size)
+        print('img_size', img_size)
 
         label_num = np.max(label) + 1
         label = cv2.resize(label, (int(img_size[1]), int(img_size[0])), interpolation=cv2.INTER_NEAREST)
         score = cv2.resize(score, (int(img_size[1]), int(img_size[0])), interpolation=cv2.INTER_NEAREST)
-
+        
+        label1 = label.copy()
+        
         if not self.training and cfg.report_speed:
             torch.cuda.synchronize()
             outputs.update(dict(
@@ -211,47 +245,118 @@ class PA_Head(nn.Module):
 
         scale = (float(org_img_size[1]) / float(img_size[1]),
                  float(org_img_size[0]) / float(img_size[0]))
-
+        print('scale', scale)
+        
         with_rec = hasattr(cfg.model, 'recognition_head')
 
         if with_rec:
             bboxes_h = np.zeros((1, label_num, 4), dtype=np.int32)
             instances = [[]]
 
+        # bboxes = []
+        # scores = []
+        
+        # for i in range(1, label_num):
+        #     ind = label == i
+        #     points = np.array(np.where(ind)).transpose((1, 0))
+
+        #     if points.shape[0] < cfg.test_cfg.min_area:
+        #         label[ind] = 0
+        #         continue
+
+        #     score_i = np.mean(score[ind])
+        #     if score_i < cfg.test_cfg.min_score:
+        #         label[ind] = 0
+        #         continue
+
+        #     if with_rec:
+        #         tl = np.min(points, axis=0)
+        #         br = np.max(points, axis=0) + 1
+        #         bboxes_h[0, i] = (tl[0], tl[1], br[0], br[1])
+        #         instances[0].append(i)
+
+        #     if cfg.test_cfg.bbox_type == 'rect':
+        #         rect = cv2.minAreaRect(points[:, ::-1])
+        #         bbox = cv2.boxPoints(rect) * scale
+        #     elif cfg.test_cfg.bbox_type == 'poly':
+        #         binary = np.zeros(label.shape, dtype='uint8')
+        #         binary[ind] = 1
+        #         contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        #         bbox = contours[0] * scale
+
+        #     bbox = bbox.astype('int32')
+        #     bboxes.append(bbox.reshape(-1))
+        #     scores.append(score_i)
+
+        # bboxes0 = bboxes.copy()
+        # scores0 = scores.copy()
+        time3 = time.time()
+        print('for loop time', time3-time2)
+        
+        
+        # label = label1.copy()
+        # label[label > 0] = 1
+        
+        # cv2.imwrite('label.jpg', label*128)
+        # cv2.imwrite('label1.jpg', label1)
+        # label_num = np.max(label) + 1
+        # print(label_num)
+        
         bboxes = []
         scores = []
+
+        # num_thread = label_num -1 
+        pool = ThreadPool(processes=label_num-1)
+        
+        result = []
         for i in range(1, label_num):
-            ind = label == i
-            points = np.array(np.where(ind)).transpose((1, 0))
+            async_result = pool.apply_async(thread_worker, (label, score, scale, cfg.test_cfg.min_area, cfg.test_cfg.min_score, i)) # tuple of args for foo
+            result.append(async_result)
+        
+        for res in result:
+            box = res.get()[0]
+            if np.any(box != None):
+                bboxes.append(box)
+                scores.append(res.get()[1])
+        
+        print('num word', len(bboxes))
+        
+        # for i in range(1, label_num):
+        #     ind = label == i
+        #     points = np.array(np.where(ind)).transpose((1, 0))
 
-            if points.shape[0] < cfg.test_cfg.min_area:
-                label[ind] = 0
-                continue
+        #     if points.shape[0] < cfg.test_cfg.min_area:
+        #         label[ind] = 0
+        #         continue
 
-            score_i = np.mean(score[ind])
-            if score_i < cfg.test_cfg.min_score:
-                label[ind] = 0
-                continue
+        #     score_i = np.mean(score[ind])
+        #     if score_i < cfg.test_cfg.min_score:
+        #         label[ind] = 0
+        #         continue
 
-            if with_rec:
-                tl = np.min(points, axis=0)
-                br = np.max(points, axis=0) + 1
-                bboxes_h[0, i] = (tl[0], tl[1], br[0], br[1])
-                instances[0].append(i)
+        #     if with_rec:
+        #         tl = np.min(points, axis=0)
+        #         br = np.max(points, axis=0) + 1
+        #         bboxes_h[0, i] = (tl[0], tl[1], br[0], br[1])
+        #         instances[0].append(i)
 
-            if cfg.test_cfg.bbox_type == 'rect':
-                rect = cv2.minAreaRect(points[:, ::-1])
-                bbox = cv2.boxPoints(rect) * scale
-            elif cfg.test_cfg.bbox_type == 'poly':
-                binary = np.zeros(label.shape, dtype='uint8')
-                binary[ind] = 1
-                contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                bbox = contours[0] * scale
+        #     if cfg.test_cfg.bbox_type == 'rect':
+        #         rect = cv2.minAreaRect(points[:, ::-1])
+        #         bbox = cv2.boxPoints(rect) * scale
+        #     elif cfg.test_cfg.bbox_type == 'poly':
+        #         binary = np.zeros(label.shape, dtype='uint8')
+        #         binary[ind] = 1
+        #         contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        #         bbox = contours[0] * scale
 
-            bbox = bbox.astype('int32')
-            bboxes.append(bbox.reshape(-1))
-            scores.append(score_i)
+        #     bbox = bbox.astype('int32')
+        #     bboxes.append(bbox.reshape(-1))
+        #     scores.append(score_i)
 
+        time4 = time.time()
+        print('for loop time',time4-time3)        
+        
+        
         outputs.update(dict(
             bboxes=bboxes,
             scores=scores
@@ -264,3 +369,24 @@ class PA_Head(nn.Module):
             ))
 
         return outputs
+    
+    
+    
+def thread_worker(label, score, scale, min_area, min_score, i):
+    ind = label == i
+    points = np.array(np.where(ind)).transpose((1, 0))
+
+    if points.shape[0] < min_area:
+        label[ind] = 0
+        return (None, None)
+
+    score_i = np.mean(score[ind])
+    if score_i < min_score:
+        label[ind] = 0
+        return (None, None)
+    
+    rect = cv2.minAreaRect(points[:, ::-1])
+    bbox = cv2.boxPoints(rect) * scale
+
+    bbox = bbox.astype('int32')
+    return (bbox.reshape(-1), score_i)

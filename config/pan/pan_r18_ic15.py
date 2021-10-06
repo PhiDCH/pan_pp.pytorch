@@ -54,8 +54,8 @@ train_cfg = dict(
     optimizer='Adam'
 )
 test_cfg = dict(
-    min_score=0.85,
-    min_area=16,
+    min_score=0.7,
+    min_area=10,
     bbox_type='rect',
     result_path='outputs/submit_ic15.zip'
 )
