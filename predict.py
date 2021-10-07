@@ -115,7 +115,8 @@ def get_model(args):
     return model, cfg
 
 def get_input(img_path):
-    img = cv2.imread(img_path)[:, :, [2,1,0]]
+    img = cv2.imread(img_path)
+    # img = img[:, :, [2,1,0]]
     img_meta = dict(
         org_img_size=np.array(img.shape[:2])
     )
@@ -193,7 +194,7 @@ if __name__ == '__main__':
         img = cv2.imread(img_path)
         img_save = cv2.polylines(img, [box.reshape((4,2)) for box in poly], True, (0,255,0), 1)
         # cv2.imwrite(os.path.join(dic, img_list[i]), img_save)
-        cv2.imwrite('test.jpg', img_save)
+        cv2.imwrite('test1.jpg', img_save)
         
         # cv2.imwrite('test_shrink0.5.jpg', img_save)
     

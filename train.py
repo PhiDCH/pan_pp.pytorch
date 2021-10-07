@@ -228,7 +228,12 @@ def main(args):
         start_epoch = checkpoint['epoch']
         start_iter = checkpoint['iter']
         
+        # for key,value in checkpoint['state_dict'].items():
+        #     print(key)
+    
+    
         model.load_state_dict(checkpoint['state_dict'])
+        
         optimizer.load_state_dict(checkpoint['optimizer'])
         
         

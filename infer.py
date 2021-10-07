@@ -7,6 +7,8 @@ import sys
 import time
 import json
 from mmcv import Config
+from PIL import Image
+import torchvision.transforms as transforms
 
 from tqdm import tqdm
 import cv2
@@ -37,28 +39,40 @@ def test(test_loader, model, cfg):
         image_name, _ = osp.splitext(osp.basename(test_loader.dataset.img_paths[idx]))
         rf.write_result(image_name, outputs)
 
-from models import PAN
 
-def main(args):
-    cfg = Config.fromfile(args.config)
+def scale_aligned_short(img, short_size=736):
+    h, w = img.shape[0:2]
+    scale = short_size * 1.0 / min(h, w)
+    h = int(h * scale + 0.5)
+    w = int(w * scale + 0.5)
+    if h % 32 != 0:
+        h = h + (32 - h % 32)
+    if w % 32 != 0:
+        w = w + (32 - w % 32)
+    img = cv2.resize(img, dsize=(w, h))
+    return img
 
+
+
+def load_model(config_file, model_path):
+    cfg = Config.fromfile(config_file)
     # model
     param = dict()
     for key in cfg.model:
         if key == 'type':
             continue
         param[key] = cfg.model[key]
+        
     model = PAN(**param)
-    
     # model = build_model(cfg.model)
     model = model.cuda()
-
-    if args.checkpoint is not None:
-        if os.path.isfile(args.checkpoint):
-            print("Loading model and optimizer from checkpoint '{}'".format(args.checkpoint))
+    
+    if model_path is not None:
+        if os.path.isfile(model_path):
+            print("Loading model and optimizer from checkpoint '{}'".format(model_path))
             sys.stdout.flush()
 
-            checkpoint = torch.load(args.checkpoint)
+            checkpoint = torch.load(model_path)
             print(checkpoint.keys())
 
             d = dict()
@@ -71,27 +85,76 @@ def main(args):
             # torch.save(model.state_dict(), 'checkpoints/pan_r18_alldata2.pth.tar')
             
         else:
-            print("No checkpoint found at '{}'".format(args.checkpoint))
+            print("No checkpoint found at '{}'".format(model_path))
             raise
 
     # fuse conv and bn
+    # turn off batch norm layer to speed up model while inferencing
     model = fuse_module(model)
+    model.eval()
+    return model
 
-    # test
-    # test(test_loader, model, cfg)
+def get_input(config_file, img):
+    cfg = Config.fromfile(config_file)
+    for d in [cfg, cfg.data.test]:
+        d.update(dict(
+            report_speed=False
+        ))
+    
+    # img = cv2.imread(img_path)
+    img = img[:, :, [2,1,0]]
+    img_meta = dict(
+        org_img_size=np.array(img.shape[:2])
+    )
 
+    short_size = 736
+    img = scale_aligned_short(img, short_size)
+    img_meta.update(dict(
+        img_size=np.array(img.shape[:2])
+    ))
+
+    img = Image.fromarray(img)
+    img = img.convert('RGB')
+    img = transforms.ToTensor()(img)
+    img = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(img)
+    img = img.unsqueeze_(0)
+
+    data = dict(
+        imgs=img.cuda(),
+        img_metas=img_meta
+    )
+    data.update(dict(cfg=cfg))
+    return data
+
+def extract_wordboxes(config_file, model, img):
+    model_input = get_input(config_file, img)
+    with torch.no_grad():
+        outputs = model(**model_input)
+    poly = outputs['bboxes']
+    return poly
 
 if __name__ == '__main__':
-    # print(1)
+        
     parser = argparse.ArgumentParser(description='Hyperparams')
     parser.add_argument('config', type=str, nargs='?',help='config file path', default='config/pan/pan_r18_ic15.py')
     parser.add_argument('checkpoint', nargs='?', type=str, default='/home/dev/Downloads/phi/pan_pp.pytorch/checkpoints/pan_r18_alldata2/checkpoint.pth.tar')
     # parser.add_argument('checkpoint', nargs='?', type=str, default='/home/dev/Downloads/phi/pan_pp.pytorch/checkpoints/pan_r18_alldata2.pth.tar')
+    # parser.add_argument('checkpoint', nargs='?', type=str, default='/home/dev/Downloads/phi/pan_pp.pytorch/checkpoints/pan_r18_synth.pth.tar')
     args = parser.parse_args()
 
     # print(args.checkpoint)
     # print(args.config)
-    main(args)
+    
+    config_file = 'config/pan/pan_r18_ic15.py'
+    model_path = 'checkpoints/pan_r18_synth.pth.tar'
+        
+    model =  load_model(config_file, model_path)
+    
+    img = cv2.imread('test.jpg')
+    poly = extract_wordboxes(config_file, model, img)
+    
+    img_save = cv2.polylines(img, [box.reshape((4,2)) for box in poly], True, (0,255,0), 1)
+    cv2.imwrite('test1.jpg', img_save)
     
     # cfg = Config.fromfile(args.config)
     # print(cfg['model'])
