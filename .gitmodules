@@ -1,0 +1,3 @@
+[submodule "newpan"]
+	path = newpan
+	url = https://github.com/PhiDCH/new_pan
