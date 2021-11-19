@@ -30,7 +30,7 @@ model = dict(
     )
 )
 data = dict(
-    batch_size=16,
+    batch_size=8,
     train=dict(
         type='PAN_IC15',
         split='train',
