@@ -18,6 +18,17 @@ pip install -r requirement.txt
 ```
 ## Dataset
 See [dataset](https://github.com/whai362/pan_pp.pytorch/tree/master/dataset).
+```none
+pan_pp.pytorch
+└── data
+    ├── finetune
+    │   ├── train
+    │   │   ├── img
+    │   │   └── gt
+    │   └── test
+    │       ├── img
+    │       └── gt
+```
 
 ## Training
 ```shell script
