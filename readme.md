@@ -17,7 +17,7 @@ pip install -r requirement.txt
 ./compile.sh
 ```
 ## Dataset
-See [dataset](https://github.com/whai362/pan_pp.pytorch/tree/master/dataset).
+See [ICDAR2015 format](https://rrc.cvc.uab.es/?ch=4&com=tasks).
 ```none
 pan_pp.pytorch
 └── data
