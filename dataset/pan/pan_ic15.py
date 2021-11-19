@@ -13,7 +13,7 @@ import scipy.io as scio
 import mmcv
 from mmcv.parallel import DataContainer as DC
 
-finetune = '../milk_data/finetune/'
+finetune = 'icdar2015/'
 finetune_train_data_dir = finetune + 'train/img/'
 finetune_train_gt_dir = finetune + 'train/gt/'
 finetune_test_data_dir = finetune + 'test/img/'
