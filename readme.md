@@ -30,6 +30,11 @@ pan_pp.pytorch
     │       └── gt
 ```
 
+## Download pretrain model
+```
+gdown --id 1dXMKs1VAltre6RCtDHYft-2q8oCtC_Yh -O checkpoint.pth.tar
+```
+
 ## Training
 ```shell script
 
