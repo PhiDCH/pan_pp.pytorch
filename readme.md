@@ -35,3 +35,5 @@ pan_pp.pytorch
 
 CUDA_VISIBLE_DEVICES=0,1,2,3 python train.py config/pan/pan_r18_ic15.py
 ```
+
+See [Colab](https://colab.research.google.com/drive/153gGIa9zAKQskd6jOitc8emS3mfO6Ab_?usp=sharing).
