@@ -19,28 +19,6 @@ ic15_train_gt_dir = ic15_root_dir + 'train/gt/'
 ic15_test_data_dir = ic15_root_dir + 'test/img/'
 ic15_test_gt_dir = ic15_root_dir + 'test/gt/'
 
-mlt_root_dir = '../mlt/'
-mlt_train_data_dir = mlt_root_dir + 'train/img/'
-mlt_train_gt_dir = mlt_root_dir + 'train/gt/'
-mlt_test_data_dir = mlt_root_dir + 'val/img/'
-mlt_test_gt_dir = mlt_root_dir + 'val/gt/'
-
-ic13_root_dir = '../icdar2013/'
-ic13_train_data_dir = ic13_root_dir + 'train/img/'
-ic13_train_gt_dir = ic13_root_dir + 'train/gt/'
-
-vintext_root_dir = '../vintext/'
-vintext_train_data_dir = vintext_root_dir + 'train/img/'
-vintext_train_gt_dir = vintext_root_dir + 'train/gt/'
-
-ic19 = '../ic19-art/'
-ic19_train_data_dir = ic19 + 'train/img/'
-ic19_train_gt_dir = ic19 + 'train/gt/'
-
-textOCR = '../textOCR/'
-textOCR_train_data_dir = textOCR + 'train/img/'
-textOCR_train_gt_dir = textOCR + 'train/gt/'
-
 finetune = '../milk_data/finetune/'
 finetune_train_data_dir = finetune + 'train/img/'
 finetune_train_gt_dir = finetune + 'train/gt/'
