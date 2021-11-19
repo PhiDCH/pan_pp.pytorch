@@ -13,23 +13,19 @@ import scipy.io as scio
 import mmcv
 from mmcv.parallel import DataContainer as DC
 
-ic15_root_dir = '../icdar2015/'
-ic15_train_data_dir = ic15_root_dir + 'train/img/'
-ic15_train_gt_dir = ic15_root_dir + 'train/gt/'
-ic15_test_data_dir = ic15_root_dir + 'test/img/'
-ic15_test_gt_dir = ic15_root_dir + 'test/gt/'
-
 finetune = '../milk_data/finetune/'
 finetune_train_data_dir = finetune + 'train/img/'
 finetune_train_gt_dir = finetune + 'train/gt/'
+finetune_test_data_dir = finetune + 'test/img/'
+finetune_test_gt_dir = finetune + 'test/gt/'
 
-bosung = '../milk_data/bosung/'
-bosung_train_data_dir = bosung + 'train/img/'
-bosung_train_gt_dir = bosung + 'train/gt/'
+# bosung = '../milk_data/bosung/'
+# bosung_train_data_dir = bosung + 'train/img/'
+# bosung_train_gt_dir = bosung + 'train/gt/'
 
-datagen = '../milk_data/gendata/'
-datagen_train_data_dir = datagen + 'train/img/'
-datagen_train_gt_dir = datagen + 'train/gt/'
+# datagen = '../milk_data/gendata/'
+# datagen_train_data_dir = datagen + 'train/img/'
+# datagen_train_gt_dir = datagen + 'train/gt/'
 
 def get_img(img_path, read_type='pil'):
     try:
@@ -276,15 +272,11 @@ class PAN_IC15(data.Dataset):
         self.read_type = read_type
 
         if split == 'train':
-            # data_dirs = [ic15_train_data_dir, mlt_train_data_dir, ic13_train_data_dir, vintext_train_data_dir]
-            # gt_dirs = [ic15_train_gt_dir, mlt_train_gt_dir, ic13_train_gt_dir, vintext_train_gt_dir]
-            # data_dirs = [mlt_train_data_dir, ic13_train_data_dir, vintext_train_data_dir, ic15_train_data_dir, ic19_train_data_dir, textOCR_train_data_dir]
-            # gt_dirs = [mlt_train_gt_dir, ic13_train_gt_dir, vintext_train_gt_dir, ic15_train_gt_dir, ic19_train_gt_dir, textOCR_train_gt_dir]
-            data_dirs = [finetune_train_data_dir, bosung_train_data_dir, datagen_train_data_dir]
-            gt_dirs = [finetune_train_gt_dir, bosung_train_gt_dir, datagen_train_gt_dir]
+            data_dirs = [finetune_train_data_dir]
+            gt_dirs = [finetune_train_gt_dir]
         elif split == 'test':
-            data_dirs = [ic15_test_data_dir]
-            gt_dirs = [ic15_test_gt_dir]
+            data_dirs = [finetune_test_data_dir]
+            gt_dirs = [finetune_test_gt_dir]
         else:
             print('Error: split must be train or test!')
             raise
