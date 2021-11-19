@@ -24,12 +24,3 @@ See [dataset](https://github.com/whai362/pan_pp.pytorch/tree/master/dataset).
 
 CUDA_VISIBLE_DEVICES=0,1,2,3 python train.py config/pan/pan_r18_ic15.py
 ```
-
-## Test
-```
-python test.py ${CONFIG_FILE} ${CHECKPOINT_FILE}
-```
-For example:
-```shell script
-python test.py config/pan/pan_r18_ic15.py checkpoints/pan_r18_ic15/checkpoint.pth.tar
-```
