@@ -21,10 +21,7 @@ See [dataset](https://github.com/whai362/pan_pp.pytorch/tree/master/dataset).
 
 ## Training
 ```shell script
-CUDA_VISIBLE_DEVICES=0,1,2,3 python train.py ${CONFIG_FILE}
-```
-For example:
-```shell script
+
 CUDA_VISIBLE_DEVICES=0,1,2,3 python train.py config/pan/pan_r18_ic15.py
 ```
 
