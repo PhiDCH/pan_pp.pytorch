@@ -265,7 +265,7 @@ if __name__ == '__main__':
     # parser.add_argument('--checkpoint', nargs='?', type=str, default='checkpoints/pan_r18_alldata2')
     # parser.add_argument('--resume', nargs='?', type=str, default='/home/dev/Downloads/phi/pan_pp.pytorch/checkpoints/pan_r18_synth.pth.tar')
     parser.add_argument('--checkpoint', nargs='?', type=str, default='checkpoints/pan_r18_milk')
-    parser.add_argument('--resume', nargs='?', type=str, default='/home/dev/Downloads/phi/pan_pp.pytorch/checkpoints/pan_r18_alldata2/checkpoint.pth.tar')
+    parser.add_argument('--resume', nargs='?', type=str, default='checkpoint.pth.tar')
     args = parser.parse_args()
 
     main(args)
