@@ -20,14 +20,13 @@ pip install -r requirement.txt
 See [ICDAR2015 format](https://rrc.cvc.uab.es/?ch=4&com=tasks).
 ```none
 pan_pp.pytorch
-└── data
-    ├── finetune
-    │   ├── train
-    │   │   ├── img
-    │   │   └── gt
-    │   └── test
-    │       ├── img
-    │       └── gt
+└── icdar2015
+    │   train
+    │   ├── img
+    │   └── gt
+    │   test
+    │   ├── img
+    │   └── gt
 ```
 
 ## Download pretrain model
